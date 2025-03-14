@@ -126,46 +126,50 @@ public class NoiseBall : MonoBehaviour
         public float pNoiseAmplitude;
         public float3 pNoiseOffset;
 
-        public void Execute(int id)
+         public void Execute(int id)
         {
             float noiseFreq = pNoiseFrequency;
-            float noiseAmp  = pNoiseAmplitude;
+            float noiseAmp = pNoiseAmplitude;
             float3 noiseOffset = pNoiseOffset;
             float extent = pExtent;
             float time = pTime;
 
-            int idx1 = id * 3;
-            int idx2 = id * 3 + 1;
-            int idx3 = id * 3 + 2;
+            for (int i = 0; i < 4; i++)
+            {
+                int original_id = id * 4 + i;
+                
+                int idx1 = original_id * 3;
+                int idx2 = original_id * 3 + 1;
+                int idx3 = original_id * 3 + 2;
 
-            float seed = floor(time + id * 0.1f) * 0.1f;
-            float3 v1 = RandomPoint(idx1 + seed);
-            float3 v2 = RandomPoint(idx2 + seed);
-            float3 v3 = RandomPoint(idx3 + seed);
+                if (idx3 >= vertices.Length) return;
 
-            v2 = normalize(v1 + normalize(v2 - v1) * extent);
-            v3 = normalize(v1 + normalize(v3 - v1) * extent);
+                float seed = floor(time + original_id * 0.1f) * 0.1f;
 
-            float l1 = SimplexNoise3D.snoise(v1 * noiseFreq + noiseOffset).w;
-            float l2 = SimplexNoise3D.snoise(v2 * noiseFreq + noiseOffset).w;
-            float l3 = SimplexNoise3D.snoise(v3 * noiseFreq + noiseOffset).w;
+                float3 v1 = RandomPoint(idx1 + seed);
+                float3 v2 = RandomPoint(idx2 + seed);
+                float3 v3 = RandomPoint(idx3 + seed);
 
-            l1 = abs(l1 * l1 * l1);
-            l2 = abs(l2 * l2 * l2);
-            l3 = abs(l3 * l3 * l3);
+                v2 = normalize(v1 + normalize(v2 - v1) * extent);
+                v3 = normalize(v1 + normalize(v3 - v1) * extent);
 
-            v1 *= 1 + l1 * noiseAmp;
-            v2 *= 1 + l2 * noiseAmp;
-            v3 *= 1 + l3 * noiseAmp;
+                float l1 = abs(pow(SimplexNoise3D.snoise(v1 * noiseFreq + noiseOffset).w, 3));
+                float l2 = abs(pow(SimplexNoise3D.snoise(v2 * noiseFreq + noiseOffset).w, 3));
+                float l3 = abs(pow(SimplexNoise3D.snoise(v3 * noiseFreq + noiseOffset).w, 3));
 
-            float3 n = normalize(cross(v2 - v1, v3 - v2));
+                v1 *= 1 + l1 * noiseAmp;
+                v2 *= 1 + l2 * noiseAmp;
+                v3 *= 1 + l3 * noiseAmp;
 
-            vertices[idx1] = v1;
-            vertices[idx2] = v2;
-            vertices[idx3] = v3;
-            normals[idx1] = n;
-            normals[idx2] = n;
-            normals[idx3] = n;
+                float3 n = normalize(cross(v2 - v1, v3 - v2));
+
+                vertices[idx1] = v1;
+                vertices[idx2] = v2;
+                vertices[idx3] = v3;
+                normals[idx1] = n;
+                normals[idx2] = n;
+                normals[idx3] = n;
+            }
         }
     }
     
@@ -208,7 +212,8 @@ public class NoiseBall : MonoBehaviour
         }
         else if (m_Mode == Mode.CPUBurst)
         {
-            job.Schedule(m_TriangleCount, m_TriangleCount).Complete();
+            int totalJobs = Mathf.CeilToInt(m_TriangleCount / 4f);
+            job.Schedule(totalJobs, totalJobs).Complete();
         }
         else if (m_Mode == Mode.CPUBurstThreaded)
         {
